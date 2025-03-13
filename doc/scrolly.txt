@@ -1,0 +1,152 @@
+*scrolly.txt*	A scroll indicator for Vim's statusline
+
+Author: Nicola Lamacchia (https://nicola.dev)
+License: Vim License (see |license|)
+
+==============================================================================
+CONTENTS                                                    *scrolly-contents*
+
+1. Introduction .................... |scrolly-intro|
+2. Installation .................... |scrolly-install|
+3. Basic Usage ..................... |scrolly-basic-usage|
+4. Configuration ................... |scrolly-config|
+5. Customization ................... |scrolly-customization|
+6. Airline Integration ............. |scrolly-airline|
+7. Troubleshooting ................. |scrolly-troubleshooting|
+8. License ......................... |scrolly-license|
+
+==============================================================================
+1. INTRODUCTION                                                *scrolly-intro*
+
+Scrolly is a Vim plugin that adds a graphical scrollbar to Vim's statusline.
+Features include:
+
+- Visual representation of current file position
+- Visible window range indicator
+- Current line marker
+- Error/warning indicators from location list
+- Customizable symbols and width
+- Works with both native statusline and vim-airline
+- Automatic visibility in wide windows
+
+The scrollbar automatically appears in sufficiently wide windows and can be
+integrated with either Vim's native statusline or third-party statusline
+plugins.
+
+This plugin was loosely inspired by the scrollbar extension for vim-airline
+(see |airline-scrollbar|).
+
+==============================================================================
+2. INSTALLATION                                              *scrolly-install*
+
+Use your preferred plugin manager or Vim's native package system to install.
+
+With vim-plug: >
+    Plug 'nicolalamacchia/vim-scrolly'
+<
+Manual installation:
+1. Copy plugin files to ~/.vim/plugin/ and ~/.vim/autoload/
+
+==============================================================================
+3. BASIC USAGE                                           *scrolly-basic-usage*
+
+For native Vim statusline integration, add to your .vimrc: >
+    " Simple implementation
+    set statusline=%{scrolly#bar()}
+
+    " Recommended: Preserve existing statusline elements
+    set statusline=%<%f\ %h%m%r%{scrolly#bar()}%=%-14.(%l,%c%V%)\ %P
+<
+The scrollbar will automatically appear when window width exceeds
+|g:scrolly_minwidth| (default: 200 columns).
+
+==============================================================================
+4. CONFIGURATION                                              *scrolly-config*
+
+Enable/disable the plugin: >
+    let g:scrolly_enable = 1        " Default: 1
+<
+Toggle error display (requires location list entries): >
+    let g:scrolly_show_errors = 1   " Default: 1
+<
+Minimum window width for scrollbar display: >
+    let g:scrolly_minwidth = 200    " Default: 200
+
+==============================================================================
+5. CUSTOMIZATION                                       *scrolly-customization*
+
+*Symbol customization* ~
+Override default symbols: >
+    let g:scrolly_symbols = {
+      \ 'left': '▐',
+      \ 'right': '▌',
+      \ 'current_line': '█',
+      \ 'space': ' ',
+      \ 'visible': '▒',
+      \ 'error_in_line': '▀',
+      \ 'error_in_view': '▓',
+      \ 'error': '▄',
+      \ }
+<
+Available symbols: (same as previous documentation)
+
+*Scrollbar dimensions* ~
+Set scrollbar width (characters): >
+    let g:scrolly_width = 20           " Default: 20
+<
+Border placement: >
+    let g:scrolly_borders_outside = 1  " Default: 1
+<
+==============================================================================
+6. AIRLINE INTEGRATION                                       *scrolly-airline*
+
+Optional vim-airline support (requires airline plugin):
+
+Enable integration: >
+    let g:scrolly_enable_airline_scrollbar = 1  " Default: 1
+<
+The scrollbar will appear in airline's section 'x' (middle right). Disable
+with: >
+    let g:scrolly_enable_airline_scrollbar = 0
+
+==============================================================================
+7. TROUBLESHOOTING                                   *scrolly-troubleshooting*
+
+*Scrollbar not appearing* ~
+1. Verify window width > |g:scrolly_minwidth|
+2. Check statusline configuration contains %{scrolly#bar()}
+3. Ensure |g:scrolly_enable| = 1
+
+*Native statusline configuration* ~
+1. Preserve existing statusline elements: >
+    set statusline=...%{scrolly#bar()}...
+<
+2. Use proper escaping for spaces: >
+    set statusline+=%{scrolly#bar()}\
+
+*Error markers not showing* ~
+1. Confirm |g:scrolly_show_errors| = 1
+2. Verify location list contains entries (:lopen)
+3. Check symbol definitions in |g:scrolly_symbols|
+
+*Visual glitches* ~
+1. Ensure your font supports Unicode box drawing characters if using the
+   default symbols
+2. Try different border configurations (|g:scrolly_borders_outside|)
+3. Adjust scrollbar width (|g:scrolly_width|)
+
+==============================================================================
+8. LICENSE                                                   *scrolly-license*
+
+This plugin uses the Vim |License|, same as Vim itself. In short:
+
+- You can use, copy, modify and distribute this plugin
+- There is no warranty
+- You are encouraged to make a donation to help children in |Uganda| through
+  ICCF (|iccf|)
+
+Full license text available in Vim's documentation: >
+    :help license
+
+==============================================================================
+ vim:tw=78:ts=8:ft=help:norl:
