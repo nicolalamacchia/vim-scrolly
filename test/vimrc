@@ -1,0 +1,11 @@
+filetype off
+syntax on
+for dep in ['vader.vim', 'vim-scrolly']
+  execute 'set runtimepath+=' . finddir(dep, expand('~/.vim').'/**')
+endfor
+set runtimepath+=..
+filetype plugin indent on
+syntax enable
+set nomore
+set noswapfile
+set viminfo=
