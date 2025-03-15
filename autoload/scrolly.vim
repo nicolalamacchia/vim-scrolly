@@ -27,10 +27,10 @@ function! scrolly#bar() abort
   let symbols = g:scrolly_symbols
   let borders_outside = g:scrolly_borders_outside
 
-  let top_line = line("w0") * 1.0
-  let bottom_line = line("w$") * 1.0
-  let current_line = line(".") * 1.0
-  let total_lines = line("$") * 1.0
+  let top_line = line("w0") - 1.0
+  let bottom_line = line("w$") - 1.0
+  let current_line = line(".") - 1.0
+  let total_lines = line("$") - 1.0
 
   let scrollbar_start_padding = float2nr(floor(top_line / total_lines * width))
   let window_width = float2nr(ceil((bottom_line - top_line) / total_lines * width))
@@ -39,7 +39,7 @@ function! scrolly#bar() abort
 
   let chars = split(repeat(symbols.space, width), '\zs')
 
-  let chars[min([scrollbar_start_padding, width - 1]):scrollbar_start_padding + window_width - 1] = split(repeat(symbols.visible, window_width), '\zs')
+  let chars[max([min([scrollbar_start_padding, width - 1]), 0]):max([scrollbar_start_padding + window_width - 1, 0])] = split(repeat(symbols.visible, window_width), '\zs')
 
   if !borders_outside
     let chars[0] = symbols.left
@@ -71,7 +71,7 @@ function! scrolly#bar() abort
       if total_lines == 0
         continue
       endif
-      let perc_error = (lnum + 0.0) / total_lines
+      let perc_error = (lnum - 1.0) / total_lines
       let error_index = float2nr(floor(perc_error * width))
       let error_index = max([0, min([error_index, width])])
 

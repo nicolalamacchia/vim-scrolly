@@ -28,10 +28,10 @@ Then (result is empty when minwidth is greater than columns):
 Execute (g:scrolly_minwidth = &columns - 1):
   let g:scrolly_minwidth = &columns - 1
   let result = scrolly#bar()
-Then (symbols are correct):
+Then (symbols are correct when minwidth is less than columns):
   let expected = g:scrolly_symbols.left
-        \ . repeat(g:scrolly_symbols.space, g:scrolly_width - 1)
         \ . g:scrolly_symbols.current_line
+        \ . repeat(g:scrolly_symbols.space, g:scrolly_width - 1)
         \ . g:scrolly_symbols.right
   AssertEqual expected, result
 
@@ -42,9 +42,9 @@ Execute (g:scrolly_borders_outside = 0):
 Then (borders are inside):
   " When borders are inside, we never append the right symbol,
   " so the last char should be the current_line symbol
-  let expected = g:scrolly_symbols.left
+  let expected = g:scrolly_symbols.current_line
         \ . repeat(g:scrolly_symbols.space, g:scrolly_width - 2)
-        \ . g:scrolly_symbols.current_line
+        \ . g:scrolly_symbols.right
   AssertEqual expected, result
 
 " 4) Borders outside
@@ -53,8 +53,8 @@ Execute (g:scrolly_borders_outside = 1):
   let result = scrolly#bar()
 Then (borders are outside):
   let expected = g:scrolly_symbols.left
-        \ . repeat(g:scrolly_symbols.space, g:scrolly_width - 1)
         \ . g:scrolly_symbols.current_line
+        \ . repeat(g:scrolly_symbols.space, g:scrolly_width - 1)
         \ . g:scrolly_symbols.right
   AssertEqual expected, result
 
@@ -154,9 +154,9 @@ Then (current_line symbol is at the correct index):
   " Because g:scrolly_borders_outside=0, the scrollbar string is exactly g:scrolly_width (20) chars long,
   " and the 0-based index of '█' should be 10 in that string.
   let expected = g:scrolly_symbols.left
-        \ . repeat(g:scrolly_symbols.space, 9)
+        \ . repeat(g:scrolly_symbols.space, 8)
         \ . g:scrolly_symbols.current_line
-        \ . repeat(g:scrolly_symbols.visible, 8)
+        \ . repeat(g:scrolly_symbols.visible, 9)
         \ . g:scrolly_symbols.right
   AssertEqual result, expected
 
