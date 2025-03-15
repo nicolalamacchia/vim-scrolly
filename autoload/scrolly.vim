@@ -23,30 +23,32 @@ function! scrolly#bar() abort
     return ''
   endif
 
-  let width = g:scrolly_width
+  let bar_width = g:scrolly_width
   let symbols = g:scrolly_symbols
   let borders_outside = g:scrolly_borders_outside
 
-  let top_line = line("w0") - 1.0
-  let bottom_line = line("w$") - 1.0
-  let current_line = line(".") - 1.0
-  let total_lines = line("$") - 1.0
+  let win_top_line = line("w0") - 1
+  let win_bottom_line = line("w$") - 1
+  let current_line = line(".") - 1
+  let total_lines = line("$")
 
-  let scrollbar_start_padding = float2nr(floor(top_line / total_lines * width))
-  let window_width = float2nr(ceil((bottom_line - top_line) / total_lines * width))
-  let curr_line_rel_to_win_start = float2nr(floor((current_line - top_line) / (bottom_line - top_line) * window_width))
-  let curr_line_marker_padding = scrollbar_start_padding + curr_line_rel_to_win_start
+  let scrollbar_start_padding = float2nr(1.0 * win_top_line / total_lines * bar_width)
+  let win_indicator_width = float2nr(ceil((1.0 * win_bottom_line - win_top_line) / total_lines * bar_width))
+  let curr_line_rel_to_win_ind_start = float2nr((1.0 * current_line - win_top_line) / max([(win_bottom_line - win_top_line), 1]) * win_indicator_width)
+  let curr_line_ind_padding = scrollbar_start_padding + curr_line_rel_to_win_ind_start
 
-  let chars = split(repeat(symbols.space, width), '\zs')
+  let chars = split(repeat(symbols.space, bar_width), '\zs')
 
-  let chars[max([min([scrollbar_start_padding, width - 1]), 0]):max([scrollbar_start_padding + window_width - 1, 0])] = split(repeat(symbols.visible, window_width), '\zs')
+  if win_indicator_width > 1
+    let chars[max([min([scrollbar_start_padding, bar_width - 1]), 0]):max([scrollbar_start_padding + win_indicator_width - 1, 0])] = split(repeat(symbols.visible, win_indicator_width), '\zs')
+  endif
 
   if !borders_outside
     let chars[0] = symbols.left
     let chars[-1] = symbols.right
   endif
 
-  let chars[min([curr_line_marker_padding, width - 1])] = symbols.current_line
+  let chars[min([curr_line_ind_padding, bar_width - 1])] = symbols.current_line
 
   let scrollbar_str = join(chars, '')
 
@@ -72,13 +74,13 @@ function! scrolly#bar() abort
         continue
       endif
       let perc_error = (lnum - 1.0) / total_lines
-      let error_index = float2nr(floor(perc_error * width))
-      let error_index = max([0, min([error_index, width])])
+      let error_index = float2nr(perc_error * bar_width)
+      let error_index = max([0, min([error_index, bar_width])])
 
       if error_index >= 0 && error_index < len(chars)
-        if error_index == curr_line_marker_padding
+        if error_index == curr_line_ind_padding
           let chars[error_index] = symbols.error_in_line
-        elseif error_index >= scrollbar_start_padding && error_index < scrollbar_start_padding + window_width
+        elseif error_index >= scrollbar_start_padding && error_index < scrollbar_start_padding + win_indicator_width
           let chars[error_index] = symbols.error_in_view
         else
           let chars[error_index] = symbols.error
