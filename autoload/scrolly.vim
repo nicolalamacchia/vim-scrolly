@@ -69,7 +69,6 @@ function! scrolly#bar() abort
         continue
       endif
 
-      let total_lines = total_lines
       if total_lines == 0
         continue
       endif
