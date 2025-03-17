@@ -4,22 +4,26 @@
 
 scriptencoding utf-8
 
-let g:scrolly_symbols = get(g:, 'scrolly_symbols', {})
-call extend(g:scrolly_symbols, {
-  \ 'left': '▐',
-  \ 'right': '▌',
-  \ 'current_line': '█',
-  \ 'space': ' ',
-  \ 'visible': '▒',
-  \ 'error_in_line': '▀',
-  \ 'error_in_view': '▓',
-  \ 'error': '▄',
-\ }, "keep")
-let g:scrolly_width = get(g:, 'scrolly_width', 20)
-let g:scrolly_borders_outside = get(g:, 'scrolly_borders_outside', 1)
+function! scrolly#init()
+  let g:scrolly_symbols = get(g:, 'scrolly_symbols', {})
+  call extend(g:scrolly_symbols, {
+    \ 'left': '▐',
+    \ 'right': '▌',
+    \ 'current_line': '█',
+    \ 'space': ' ',
+    \ 'visible': '▒',
+    \ 'error_in_line': '▀',
+    \ 'error_in_view': '▓',
+    \ 'error': '▄',
+    \ 'overflow_line': '╳',
+  \ }, "keep")
+  let g:scrolly_width = get(g:, 'scrolly_width', 20)
+  let g:scrolly_borders_outside = get(g:, 'scrolly_borders_outside', 1)
+  let g:scrolly_loc_limit = get(g:, 'scrolly_loc_limit', 1000)
+endfunction
 
-function! scrolly#bar() abort
-  if winwidth(0) < get(g:, 'scrolly_minwidth', 150)
+function! scrolly#calculate(window_width, window_height, win_top_line, win_bottom_line, current_line, total_lines, loc_list) abort
+  if a:window_width < get(g:, 'scrolly_minwidth', 150) || a:total_lines == 0
     return ''
   endif
 
@@ -27,54 +31,57 @@ function! scrolly#bar() abort
   let symbols = g:scrolly_symbols
   let borders_outside = g:scrolly_borders_outside
 
-  let win_top_line = line("w0") - 1
-  let win_bottom_line = line("w$") - 1
-  let current_line = line(".") - 1
-  let total_lines = line("$")
-
-  let scrollbar_start_padding = float2nr(1.0 * win_top_line / total_lines * bar_width)
-  let win_indicator_width = float2nr(ceil((1.0 * win_bottom_line - win_top_line) / total_lines * bar_width))
-  let curr_line_rel_to_win_ind_start = float2nr((1.0 * current_line - win_top_line) / max([(win_bottom_line - win_top_line), 1]) * win_indicator_width)
-  let curr_line_ind_padding = scrollbar_start_padding + curr_line_rel_to_win_ind_start
-
-  let chars = split(repeat(symbols.space, bar_width), '\zs')
-
-  if win_indicator_width > 1
-    let chars[max([min([scrollbar_start_padding, bar_width - 1]), 0]):max([scrollbar_start_padding + win_indicator_width - 1, 0])] = split(repeat(symbols.visible, win_indicator_width), '\zs')
+  let effective_win_height = a:win_bottom_line - a:win_top_line + 1
+  " this check is needed in case there are lines wrapping (overflow can only happen at the end of the buffer)
+  if a:win_bottom_line + 1 == a:total_lines
+    let overflow_lines = a:window_height - effective_win_height
+  else
+    let overflow_lines = 0
   endif
+  let code_bar_width = a:total_lines * bar_width / (a:total_lines + overflow_lines)
+
+  let scrollbar_start_padding = code_bar_width * a:win_top_line / a:total_lines
+  let win_indicator_width = float2nr(ceil(1.0 * code_bar_width * effective_win_height / a:total_lines))
+  let curr_line_ind_padding = code_bar_width * a:current_line / a:total_lines
+
+  let scrollbar_str = repeat(symbols.space, scrollbar_start_padding)
+    \ . repeat(symbols.visible, win_indicator_width)
+    \ . repeat(symbols.space, code_bar_width - scrollbar_start_padding - win_indicator_width)
+    \ . repeat(symbols.overflow_line, bar_width - code_bar_width)
+
+  let chars = split(scrollbar_str, '\zs')
 
   if !borders_outside
-    let chars[0] = symbols.left
-    let chars[-1] = symbols.right
+    if chars[0] == symbols.space || chars[0] == symbols.overflow_line
+      let chars[0] = symbols.left
+    endif
+    if chars[-1] == symbols.space || chars[-1] == symbols.overflow_line
+      let chars[-1] = symbols.right
+    endif
   endif
 
-  let chars[min([curr_line_ind_padding, bar_width - 1])] = symbols.current_line
-
-  let scrollbar_str = join(chars, '')
+  let chars[curr_line_ind_padding] = symbols.current_line
 
   if get(g:, 'scrolly_show_errors', 1)
-    " Process error markers
     let error_lnums = []
-    for entry in getloclist(0)
+    for entry in a:loc_list[:g:scrolly_loc_limit]
       if has_key(entry, 'lnum')
         call add(error_lnums, entry.lnum)
       endif
     endfor
     let error_lnums = uniq(sort(error_lnums))
 
-    let chars = split(scrollbar_str, '\zs')
-
     for lnum in error_lnums
-      if lnum < 1 || lnum > total_lines
+      if lnum < 1 || lnum > a:total_lines
         continue
       endif
 
-      if total_lines == 0
+      if a:total_lines == 0
         continue
       endif
-      let perc_error = (lnum - 1.0) / total_lines
-      let error_index = float2nr(perc_error * bar_width)
-      let error_index = max([0, min([error_index, bar_width])])
+      let perc_error = (lnum - 1.0) / a:total_lines
+      let error_index = float2nr(perc_error * code_bar_width)
+      let error_index = max([0, min([error_index, code_bar_width])])
 
       if error_index >= 0 && error_index < len(chars)
         if error_index == curr_line_ind_padding
@@ -86,13 +93,25 @@ function! scrolly#bar() abort
         endif
       endif
     endfor
-
-    let scrollbar_str = join(chars, '')
   endif
+
+  let scrollbar_str = join(chars, '')
 
   if borders_outside
     return symbols.left . scrollbar_str . symbols.right
   endif
 
   return scrollbar_str
+endfunction
+
+function! scrolly#bar() abort
+  let win_top_line = line("w0") - 1
+  let win_bottom_line = line("w$") - 1
+  let current_line = line(".") - 1
+  let total_lines = line("$")
+  let win_width = winwidth(0)
+  let win_height = winheight(0)
+  let loc_list = getloclist(0)
+
+  return scrolly#calculate(win_width, win_height, win_top_line, win_bottom_line, current_line, total_lines, loc_list)
 endfunction

@@ -10,6 +10,8 @@ endif
 
 let g:loaded_scrolly = 1
 
+call scrolly#init()
+
 function! AirlineScrolly(...)
   let w:airline_section_x = get(w:, 'airline_section_x',
     \ get(g:, 'airline_section_x', ''))

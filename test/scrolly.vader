@@ -1,8 +1,12 @@
-# Author: Nicola Lamacchia
+" Author: Nicola Lamacchia
 
 Before:
-  " Reset plugin defaults for each test run
-  let g:scrolly_symbols = {
+  let g:scrolly_minwidth        = 150
+  let g:scrolly_width           = 20
+  let g:scrolly_borders_outside = 1
+  let g:scrolly_loc_limit       = 1000
+  let g:scrolly_show_errors     = 1
+  let g:scrolly_symbols         = {
         \ 'left': '▐',
         \ 'right': '▌',
         \ 'current_line': '█',
@@ -11,201 +15,275 @@ Before:
         \ 'error_in_line': '▀',
         \ 'error_in_view': '▓',
         \ 'error': '▄',
+        \ 'overflow_line': '╲'
         \ }
-  let g:scrolly_width = 20
-  let g:scrolly_borders_outside = 1
-  let g:scrolly_show_errors = 1
-  let g:scrolly_minwidth = 150
 
-" 1) Returns empty string if minwidth is greater than &columns
-Execute (g:scrolly_minwidth = &columns + 1):
-  let g:scrolly_minwidth = &columns + 1
-  let result = scrolly#bar()
-Then (result is empty when minwidth is greater than columns):
+" Test 1:
+Execute (Window width below minimum returns empty string):
+  let result = scrolly#calculate(100, 30, 0, 9, 5, 100, [])
+Then (Should return an empty string):
   AssertEqual '', result
 
-" 2) Returns scrollbar if minwidth is less than &columns
-Execute (g:scrolly_minwidth = &columns - 1):
-  let g:scrolly_minwidth = &columns - 1
-  let result = scrolly#bar()
-Then (symbols are correct when minwidth is less than columns):
-  let expected = g:scrolly_symbols.left
-        \ . g:scrolly_symbols.current_line
-        \ . repeat(g:scrolly_symbols.space, g:scrolly_width - 1)
-        \ . g:scrolly_symbols.right
-  AssertEqual expected, result
+" Test 2:
+Execute (Normal case without overflow and no errors):
+  let result = scrolly#calculate(200, 20, 10, 19, 15, 100, [])
+Then (Should return the expected bar):
+  AssertEqual '▐  ▒█                ▌', result
 
-" 3) Borders inside
-Execute (g:scrolly_borders_outside = 0):
-  let g:scrolly_borders_outside = 0
-  let result = scrolly#bar()
-Then (borders are inside):
-  " When borders are inside, we never append the right symbol,
-  " so the last char should be the current_line symbol
-  let expected = g:scrolly_symbols.current_line
-        \ . repeat(g:scrolly_symbols.space, g:scrolly_width - 2)
-        \ . g:scrolly_symbols.right
-  AssertEqual expected, result
+" Test 3:
+Execute (Overflow case without errors):
+  let result = scrolly#calculate(200, 30, 10, 29, 20, 30, [])
+Then (Should return the bar with overflow markers):
+  AssertEqual '▐     ▒▒▒▒▒█▒▒▒▒╲╲╲╲╲▌', result
 
-" 4) Borders outside
-Execute (g:scrolly_borders_outside = 1):
-  let g:scrolly_borders_outside = 1
-  let result = scrolly#bar()
-Then (borders are outside):
-  let expected = g:scrolly_symbols.left
-        \ . g:scrolly_symbols.current_line
-        \ . repeat(g:scrolly_symbols.space, g:scrolly_width - 1)
-        \ . g:scrolly_symbols.right
-  AssertEqual expected, result
+" Test 4:
+Execute (Process errors from location list):
+  let result = scrolly#calculate(200, 20, 10, 19, 15, 100, [{'lnum': 16}, {'lnum': 11}, {'lnum': 50}])
+Then (Should return the bar with error symbols):
+  AssertEqual '▐  ▓▀     ▄          ▌', result
 
-" 5) scrolly_show_errors=0 -> no error symbols at all
-Execute (scrolly_show_errors=0):
+" Test 5:
+Execute (Error display disabled – errors ignored):
   let g:scrolly_show_errors = 0
-  " Fake loclist with one error line
-  call setloclist(0, [ {'lnum': 5} ])
-  let result = scrolly#bar()
-Then (no error symbols are displayed):
-  " All error variants: error_in_line='▀', error_in_view='▓', error='▄'
-  AssertEqual -1, stridx(result, g:scrolly_symbols.error_in_line)
-  AssertEqual -1, stridx(result, g:scrolly_symbols.error_in_view)
-  AssertEqual -1, stridx(result, g:scrolly_symbols.error)
+  let result = scrolly#calculate(200, 20, 10, 19, 15, 100, [{'lnum': 16}, {'lnum': 11}, {'lnum': 50}])
+Then (Should return the bar without error markings):
+  AssertEqual '▐  ▒█                ▌', result
 
-" 6) scrolly_show_errors=1 -> we do see error symbols
-Execute (scrolly_show_errors=1):
-  let g:scrolly_show_errors = 1
-  " Create a quick, empty buffer. Put 10 lines, set an error on line 3.
-  for i in range(1, 10)
-    call setline(i, 'Line ' . i)
+" Test 6:
+Execute (Borders outside disabled – modify inner bar):
+  let g:scrolly_borders_outside = 0
+  let result = scrolly#calculate(200, 20, 10, 19, 15, 100, [])
+Then (Should return the bar with replaced border characters):
+  AssertEqual '▐ ▒█               ▌', result
+
+" Test 7:
+Execute (Out-of-range error lines ignored):
+  let g:scrolly_borders_outside = 0
+  let result = scrolly#calculate(200, 20, 10, 19, 15, 100, [{'lnum': 0}, {'lnum': 101}])
+Then (Should return the unmodified bar):
+  AssertEqual '▐ ▒█               ▌', result
+
+" Test 8:
+Execute (Document with window height 50 and total lines 50, current line at top):
+  let result = scrolly#calculate(200, 50, 0, 49, 0, 50, [])
+Then (Should mark the first line as current):
+  AssertEqual '▐█▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▌', result
+
+" Test 9:
+Execute (Document with window height 50 and total lines 50, current line at bottom):
+  let result = scrolly#calculate(200, 50, 0, 49, 49, 50, [])
+Then (Should mark the last line as current):
+  AssertEqual '▐▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒█▌', result
+
+" Test 10:
+Execute (Document with window height 50 and total lines 50, current line in the middle):
+  let result = scrolly#calculate(200, 50, 0, 49, 25, 50, [])
+Then (Should mark the middle line as current):
+  AssertEqual '▐▒▒▒▒▒▒▒▒▒▒█▒▒▒▒▒▒▒▒▒▌', result
+
+" Test 11:
+Execute (Document with window height 51 and total lines 51, current line at top):
+  let result = scrolly#calculate(200, 51, 0, 50, 0, 51, [])
+Then (Should mark the first line correctly):
+  AssertEqual '▐█▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▌', result
+
+" Test 12:
+Execute (Document with window height 51 and total lines 51, current line at bottom):
+  let result = scrolly#calculate(200, 51, 0, 50, 50, 51, [])
+Then (Should mark the last line correctly):
+  AssertEqual '▐▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒█▌', result
+
+" Test 13:
+Execute (Document with window height 53 and total lines 53, current line in the middle):
+  let result = scrolly#calculate(200, 53, 0, 52, 26, 53, [])
+Then (Should mark the middle line as current):
+  AssertEqual '▐▒▒▒▒▒▒▒▒▒█▒▒▒▒▒▒▒▒▒▒▌', result
+
+" Test 14:
+Execute (Document with window height 50 and total lines 24, current line at top - overflow):
+  let result = scrolly#calculate(200, 50, 0, 23, 0, 24, [])
+Then (Should return bar with overflow and current line at start):
+  AssertEqual '▐█▒▒▒▒▒▒▒▒╲╲╲╲╲╲╲╲╲╲╲▌', result
+
+" Test 15:
+Execute (Document with window height 50 and total lines 26, current line at top - overflow):
+  let result = scrolly#calculate(200, 50, 0, 25, 0, 26, [])
+Then (Should return bar with adjusted width and current line at start):
+  AssertEqual '▐█▒▒▒▒▒▒▒▒▒╲╲╲╲╲╲╲╲╲╲▌', result
+
+" Test 16:
+Execute (Document with window height 50 and total lines 23, current line at position 1 - overflow):
+  let result = scrolly#calculate(200, 50, 0, 22, 1, 23, [])
+Then (Should return bar with overflow markers and current line marked):
+  AssertEqual '▐█▒▒▒▒▒▒▒▒╲╲╲╲╲╲╲╲╲╲╲▌', result
+
+" Test 17:
+Execute (Document with window height 51 and total lines 24, current line at top - overflow):
+  let result = scrolly#calculate(200, 51, 0, 23, 0, 24, [])
+Then (Should return bar with proper scaling and current line at start):
+  AssertEqual '▐█▒▒▒▒▒▒▒▒╲╲╲╲╲╲╲╲╲╲╲▌', result
+
+" Test 18:
+Execute (Document with window height 50 and total lines 84, current line at top - document larger than window):
+  let result = scrolly#calculate(200, 50, 10, 59, 10, 84, [])
+Then (Should return bar with correct placement for top current line):
+  AssertEqual '▐  █▒▒▒▒▒▒▒▒▒▒▒      ▌', result
+
+" Test 19:
+Execute (Document with window height 51 and total lines 83, current line at bottom - document larger than window):
+  let result = scrolly#calculate(200, 51, 10, 60, 60, 83, [])
+Then (Should return bar with correct placement for bottom current line):
+  AssertEqual '▐  ▒▒▒▒▒▒▒▒▒▒▒▒█     ▌', result
+
+" Test 20:
+Execute (Document with very large file - 10,000+ lines):
+  let result = scrolly#calculate(200, 50, 5000, 5049, 5025, 10000, [])
+Then (Should correctly represent a small window in a large file):
+  AssertEqual '▐          █         ▌', result
+
+" Test 21:
+Execute (Many errors near the g:scrolly_loc_limit):
+  let large_error_list = []
+  for i in range(1, 999)
+    call add(large_error_list, {'lnum': i})
   endfor
-  call setloclist(0, [ {'lnum': 3} ])
-  let result = scrolly#bar()
-Then (some error symbol is displayed):
-  let has_error_symbol = (stridx(result, g:scrolly_symbols.error_in_line) != -1
-        \ || stridx(result, g:scrolly_symbols.error_in_view) != -1
-        \ || stridx(result, g:scrolly_symbols.error) != -1)
-  AssertEqual has_error_symbol, 1
+  let result = scrolly#calculate(200, 50, 0, 49, 25, 1000, large_error_list)
+Then (Should handle many errors appropriately):
+  AssertEqual '▐▀▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▌', result
 
-" 7) error_in_line -> same line as cursor
-Execute (cursor on line 3 with error on line 3):
-  let g:scrolly_show_errors = 1
-  for i in range(1, 10)
-    call setline(i, 'Line ' . i)
+" Test 22:
+Execute (Errors clustered in one area):
+  let clustered_errors = []
+  for i in range(30, 39)
+    call add(clustered_errors, {'lnum': i})
   endfor
-  " Place error on line 3
-  call setloclist(0, [ {'lnum': 3} ])
-  " Move cursor to line 3
-  execute 'normal! 3G'
-  let result = scrolly#bar()
-Then (shows error_in_line symbol):
-  " '▀' by default for error_in_line
-  AssertNotEqual -1, stridx(result, g:scrolly_symbols.error_in_line)
+  let result = scrolly#calculate(200, 100, 0, 99, 50, 100, clustered_errors)
+Then (Should show errors clustered in the right section):
+  AssertEqual '▐▒▒▒▒▒▓▓▓▒▒█▒▒▒▒▒▒▒▒▒▌', result
 
-" 8) error_in_view -> within window but not current line
-Execute (cursor on line 3 error on line 5):
-  let g:scrolly_show_errors = 1
-  for i in range(1, 10)
-    call setline(i, 'Line ' . i)
-  endfor
-  call setloclist(0, [ {'lnum': 5} ])
-  " Cursor on line 3
-  execute 'normal! 3G'
-  let result = scrolly#bar()
-Then (shows error_in_view symbol):
-  " '▓' by default for error_in_view
-  AssertNotEqual -1, stridx(result, g:scrolly_symbols.error_in_view)
+" Test 23:
+Execute (Current line exactly at edge of visible window - top):
+  let result = scrolly#calculate(200, 20, 10, 29, 10, 100, [])
+Then (Should show current line at start of visible section):
+  AssertEqual '▐  █▒▒▒              ▌', result
 
-" 9) error -> outside window
-Execute (cursor on line 1 error on line 99):
-  let g:scrolly_show_errors = 1
+" Test 24:
+Execute (Current line exactly at edge of visible window - bottom):
+  let result = scrolly#calculate(200, 20, 10, 29, 29, 100, [])
+Then (Should show current line at end of visible section):
+  AssertEqual '▐  ▒▒▒█              ▌', result
+
+" Test 25:
+Execute (Window showing only a single line):
+  let result = scrolly#calculate(200, 1, 15, 15, 15, 100, [])
+Then (Should show a minimal visible section with current line):
+  AssertEqual '▐   █                ▌', result
+
+" Test 26:
+Execute (Custom symbol settings):
+  let g:scrolly_symbols = {
+        \ 'left': '[',
+        \ 'right': ']',
+        \ 'current_line': 'X',
+        \ 'space': '.',
+        \ 'visible': '#',
+        \ 'error_in_view': 'V',
+        \ 'error': 'e',
+        \ }
+  call scrolly#init()
+  let result = scrolly#calculate(200, 20, 10, 29, 15, 100, [{'lnum': 15}, {'lnum': 40}])
+Then (Should use custom symbols):
+  AssertEqual '[..VX##.e............]', result
+
+" Test 27:
+Execute (Multiple errors on same line):
+  let same_line_errors = [{'lnum': 15}, {'lnum': 15}, {'lnum': 15}, {'lnum': 15}]
+  let result = scrolly#calculate(200, 20, 10, 29, 20, 100, same_line_errors)
+Then (Should count the line only once):
+  AssertEqual '▐  ▓▒█▒              ▌', result
+
+" Test 28:
+Execute (Zero total lines error handling):
+  let result = scrolly#calculate(200, 20, 0, 0, 0, 0, [{'lnum': 1}])
+Then (Should handle zero lines case gracefully):
+  AssertEqual '', result
+
+" Test 29:
+Execute (Window width just above minimum threshold):
+  let min_width = get(g:, 'scrolly_minwidth', 150)
+  let result = scrolly#calculate(min_width + 1, 20, 10, 29, 15, 100, [])
+Then (Should still render when just above threshold):
+  AssertNotEqual '', result
+
+" Test 30:
+Execute (Very small window height):
+  let result = scrolly#calculate(200, 2, 10, 11, 10, 100, [])
+Then (Should handle tiny window appropriately):
+  AssertEqual '▐  █                 ▌', result
+
+" Test 31:
+Execute (Very small visible portion relative to total):
+  let result = scrolly#calculate(200, 5, 5000, 5004, 5002, 10000, [])
+Then (Should show a very small visible section):
+  AssertEqual '▐          █         ▌', result
+
+" Test 32:
+Execute (Window exactly at the end of file):
+  let result = scrolly#calculate(200, 20, 80, 99, 90, 100, [])
+Then (Should position window correctly at end of file):
+  AssertEqual '▐                ▒▒█▒▌', result
+
+" Test 33:
+Execute (Window larger than file with overflow):
+  let result = scrolly#calculate(200, 30, 0, 19, 10, 20, [])
+Then (Should handle overflow when window larger than file):
+  AssertEqual '▐▒▒▒▒▒▒█▒▒▒▒▒▒╲╲╲╲╲╲╲▌', result
+
+" Test 26:
+Execute (Custom symbol settings - comprehensive test of all symbols):
+  let g:scrolly_symbols = {
+        \ 'left': '[',
+        \ 'right': ']',
+        \ 'current_line': 'X',
+        \ 'space': '.',
+        \ 'visible': '#',
+        \ 'error_in_line': 'E',
+        \ 'error_in_view': 'V',
+        \ 'error': 'e',
+        \ 'overflow_line': 'o'
+        \ }
+
+  " Test 1: Basic bar with current line and visible area
+  let result1 = scrolly#calculate(200, 20, 10, 29, 15, 100, [])
+
+  " Test 2: With errors in different positions
+  let error_list = [
+        \ {'lnum': 15},
+        \ {'lnum': 20},
+        \ {'lnum': 50}
+        \ ]
+  let result2 = scrolly#calculate(200, 20, 10, 29, 15, 100, error_list)
+
+  " Test 3: With overflow
+  let result3 = scrolly#calculate(200, 30, 10, 29, 15, 30, [])
+
+Then (Should use all custom symbols correctly):
+  " Basic test with just current line and visible area
+  AssertEqual '[..#X##..............]', result1
+
+  " Test with all error types
+  AssertEqual '[..VE##...e..........]', result2
+
+  " Test with overflow line symbols
+  AssertEqual '[.....##X#######ooooo]', result3
+
+" Test 27:
+Execute (Errors over g:scrolly_loc_limit):
+  let g:scrolly_loc_limit = 49
+  let large_error_list = []
   for i in range(1, 100)
-    call setline(i, 'Line ' . i)
+    call add(large_error_list, {'lnum': i})
   endfor
-  execute 'normal! 1G'
-  call setloclist(0, [ {'lnum': 99} ])
-  let result = scrolly#bar()
-Then (shows error symbol outside view):
-  " '▄' by default for error outside the visible region
-  AssertNotEqual -1, stridx(result, g:scrolly_symbols.error)
-
-" 10) scrollbar is positioned at the correct index (cursor at line 10 of 20)
-Execute (cursor at line 10 of 20):
-  let g:scrolly_minwidth = 1  " Force scrolly#bar() to return a non-empty scrollbar
-  let g:scrolly_borders_outside = 0
-  for i in range(1, 20)
-    call setline(i, 'Line ' . i)
-  endfor
-  " Move cursor to line 10
-  execute 'normal! 10G'
-
-  let result = scrolly#bar()
-Then (current_line symbol is at the correct index):
-  " We'll check exactly where `█` appears.
-  " Based on scrolly#bar() calculations for a 20-line buffer,
-  " line("w0") == 1, line("w$") == 20. Then the formula:
-  "
-  "   scrollbar_start_padding = floor(top_line / total_lines * width)
-  "                           = floor(1/20 * 20) = 1
-  "   window_width = ceil((bottom_line - top_line)/total_lines * width)
-  "                = ceil((20-1)/20 * 20) = ceil(19) = 19
-  "   curr_line_rel_to_win_start = floor((current_line - top_line) / (bottom_line - top_line) * window_width)
-  "                              = floor((10 - 1)/(20 - 1)*19) = floor(9/19*19) = floor(9) = 9
-  "   curr_line_marker_padding = 1 + 9 = 10
-  "
-  " Because g:scrolly_borders_outside=0, the scrollbar string is exactly g:scrolly_width (20) chars long,
-  " and the 0-based index of '█' should be 10 in that string.
-  let expected = g:scrolly_symbols.left
-        \ . repeat(g:scrolly_symbols.space, 8)
-        \ . g:scrolly_symbols.current_line
-        \ . repeat(g:scrolly_symbols.visible, 9)
-        \ . g:scrolly_symbols.right
-  AssertEqual result, expected
-
-" 11) Checks that the 'visible' portion (▒) is placed at the correct indices
-Execute (check visible portion):
-  " Create a buffer with more lines than the visible window can show,
-  " so scrolly has a real "visible" subset.
-  for i in range(1, winheight(0) + 10)
-    call setline(i, 'Line ' . i)
-  endfor
-
-  " Move cursor somewhere in the first windowful (say line 5).
-  execute 'normal! 5G'
-  " Force plugin to return a scrollbar (set minimal width).
-  let g:scrolly_minwidth = 1
-  " Put borders inside to simplify indexing (no extra chars on either end).
-  let g:scrolly_borders_outside = 0
-  let g:scrolly_width = 20
-
-  " Generate the actual scrollbar string
-  let result = scrolly#bar()
-
-  " We'll manually re-compute how scrolly#bar() decides the "visible" region.
-  let top_line = line('w0')
-  let bottom_line = line('w$')
-  let total_lines = line('$')
-  let width = g:scrolly_width
-
-  " 1) Where does the scrollbar start?
-  let scrollbar_start_padding = float2nr(floor(top_line * 1.0 / total_lines * width))
-  " 2) How wide is the visible portion?
-  let window_width = float2nr(ceil((bottom_line - top_line) * 1.0 / total_lines * width))
-Then (visible portion is correctly filled with '▒' except for the current-line symbol):
-  let expected = g:scrolly_symbols.left
-        \ . repeat(g:scrolly_symbols.space, scrollbar_start_padding - 1)
-        \ . g:scrolly_symbols.current_line
-        \ . repeat(g:scrolly_symbols.visible, window_width - 1)
-        \ . g:scrolly_symbols.right
-  " AssertEqual result, expected
-  for i in range(scrollbar_start_padding, scrollbar_start_padding + window_width - 1)
-  " We'll check each index in the range for the "visible" segment.
-    if i >= len(result)
-      " In case of an edge case environment, just skip checking out-of-range.
-      break
-    endif
-    let c = result[i]
-    if c ==# g:scrolly_symbols.current_line
-      " If it's the cursor, skip (that's tested elsewhere).
-    else
-      AssertEqual g:scrolly_symbols.visible, c
-    endif
-  endfor
+  let result = scrolly#calculate(200, 50, 0, 49, 1, 100, large_error_list)
+Then (Should handle many errors appropriately):
+  AssertEqual '▐▀▓▓▓▓▓▓▓▓▓          ▌', result
