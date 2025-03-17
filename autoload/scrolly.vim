@@ -64,7 +64,12 @@ function! scrolly#calculate(window_width, window_height, win_top_line, win_botto
 
   if get(g:, 'scrolly_show_errors', 1)
     let error_lnums = []
-    for entry in a:loc_list[:g:scrolly_loc_limit]
+    if g:scrolly_loc_limit
+      let loc_list = a:loc_list[:g:scrolly_loc_limit]
+    else
+      let loc_list = a:loc_list
+    endif
+    for entry in loc_list
       if has_key(entry, 'lnum')
         call add(error_lnums, entry.lnum)
       endif

@@ -73,7 +73,7 @@ Minimum window width for scrollbar display: >
     let g:scrolly_minwidth = 200    " Default: 200
 <
 Maximum length of entries readed from the location list: >
-    let g:scrolly_loc_limit = 500    " Default: 1000
+    let g:scrolly_loc_limit = 500    " Default: 1000 (0 for no limit)
 
 ==============================================================================
 5. CUSTOMIZATION                                       *scrolly-customization*
