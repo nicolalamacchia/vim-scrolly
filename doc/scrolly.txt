@@ -71,6 +71,9 @@ Toggle error display (requires location list entries): >
 <
 Minimum window width for scrollbar display: >
     let g:scrolly_minwidth = 200    " Default: 200
+<
+Maximum length of entries readed from the location list: >
+    let g:scrolly_loc_limit = 500    " Default: 1000
 
 ==============================================================================
 5. CUSTOMIZATION                                       *scrolly-customization*
@@ -86,9 +89,21 @@ Override default symbols: >
       \ 'error_in_line': '▀',
       \ 'error_in_view': '▓',
       \ 'error': '▄',
+      \ 'overflow_line': '╳',
       \ }
 <
-Available symbols: (same as previous documentation)
+Available symbols:
+    Key             Description                         Default
+    ----------------------------------------------------------------
+    left            Left border marker                  ▐
+    right           Right border marker                 ▌
+    current_line    Current line indicator              █
+    space           Background character                (space)
+    visible         Visible area indicator              ▒
+    error_in_line   Error on current line               ▀
+    error_in_view   Error in visible area               ▓
+    error           Error outside view                  ▄
+    overflow_line   Empty lines below end-of-buffer     ╳
 
 *Scrollbar dimensions* ~
 Set scrollbar width (characters): >
