@@ -4,7 +4,11 @@
 
 scriptencoding utf-8
 
-function! scrolly#init()
+function! scrolly#calculate(window_width, window_height, win_top_line, win_bottom_line, current_line, total_lines, loc_list) abort
+  if a:window_width < get(g:, 'scrolly_minwidth', 150) || a:total_lines == 0
+    return ''
+  endif
+
   let g:scrolly_symbols = get(g:, 'scrolly_symbols', {})
   call extend(g:scrolly_symbols, {
     \ 'left': '▐',
@@ -20,12 +24,6 @@ function! scrolly#init()
   let g:scrolly_width = get(g:, 'scrolly_width', 20)
   let g:scrolly_borders_outside = get(g:, 'scrolly_borders_outside', 1)
   let g:scrolly_loc_limit = get(g:, 'scrolly_loc_limit', 1000)
-endfunction
-
-function! scrolly#calculate(window_width, window_height, win_top_line, win_bottom_line, current_line, total_lines, loc_list) abort
-  if a:window_width < get(g:, 'scrolly_minwidth', 150) || a:total_lines == 0
-    return ''
-  endif
 
   let bar_width = g:scrolly_width
   let symbols = g:scrolly_symbols
